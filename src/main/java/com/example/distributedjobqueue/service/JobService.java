@@ -4,6 +4,7 @@ import com.example.distributedjobqueue.config.JobQueueProperties;
 import com.example.distributedjobqueue.model.Job;
 import com.example.distributedjobqueue.model.JobStatus;
 import com.example.distributedjobqueue.repository.JobRepository;
+import com.example.distributedjobqueue.service.JobProducerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -30,10 +31,12 @@ public class JobService {
 
     private final JobRepository jobRepository;
     private final JobQueueProperties properties;
+    private final JobProducerService jobProducerService;
 
-    public JobService(JobRepository jobRepository, JobQueueProperties properties) {
+    public JobService(JobRepository jobRepository, JobQueueProperties properties, JobProducerService jobProducerService) {
         this.jobRepository = jobRepository;
         this.properties = properties;
+        this.jobProducerService = jobProducerService;
     }
 
     /**
@@ -51,6 +54,23 @@ public class JobService {
 
         Job savedJob = jobRepository.save(job);
         logger.info("Created new job: {}", savedJob);
+
+        // Send job to Kafka for asynchronous processing
+        try {
+            jobProducerService.sendJob(savedJob)
+                    .whenComplete((result, exception) -> {
+                        if (exception != null) {
+                            logger.error("Failed to send job {} to Kafka", savedJob.getJobId(), exception);
+                            // Mark job as failed if we can't send to Kafka
+                            failJob(savedJob.getId(), "Failed to queue job for processing");
+                        } else {
+                            logger.info("Job {} successfully queued for processing", savedJob.getJobId());
+                        }
+                    });
+        } catch (Exception e) {
+            logger.error("Error sending job {} to Kafka", savedJob.getJobId(), e);
+            failJob(savedJob.getId(), "Failed to queue job for processing");
+        }
 
         return savedJob;
     }

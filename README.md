@@ -2,14 +2,21 @@
 
 A distributed job queue built in Java using Spring Boot, showcasing concurrency, worker pools, and reliable task execution. Implements retries, scheduling, and monitoring to demonstrate scalable system design principles.
 
-## Features
+## Architecture
 
-- **Distributed Architecture**: Uses Apache Kafka for message queuing
-- **Reliable Processing**: Implements retry mechanisms and error handling
-- **Monitoring**: Prometheus metrics and Grafana dashboards
-- **Scalable**: Worker pools and concurrent processing
-- **Database Support**: PostgreSQL for production, H2 for local development
-- **REST API**: Simple HTTP endpoints for job submission and status checking
+```
+REST API → Job Producer → Kafka → Job Consumer → Database
+     ↓                                        ↓
+Status Check ←─────────────────────────────── Job Status Updates
+```
+
+The system now implements a fully distributed architecture:
+
+1. **REST API** receives job submissions
+2. **Job Producer** sends jobs to Kafka topic
+3. **Job Consumer** processes jobs asynchronously from Kafka
+4. **Database** stores job state and results
+5. **Status API** provides real-time job monitoring
 
 ## Technology Stack
 
@@ -54,6 +61,30 @@ A distributed job queue built in Java using Spring Boot, showcasing concurrency,
    - Grafana: http://localhost:3000 (admin/admin)
    - H2 Console: http://localhost:8081/h2-console
 
+### Testing the Distributed System
+
+1. **Submit a job via REST API**:
+   ```bash
+   curl -X POST http://localhost:8081/api/jobs \
+     -H "Content-Type: application/json" \
+     -d '{"jobType":"test-job","payload":{"message":"Hello World","number":42}}'
+   ```
+
+2. **Check job status** (copy the jobId from the response):
+   ```bash
+   curl http://localhost:8081/api/jobs/{jobId}
+   ```
+
+3. **Monitor Kafka processing**:
+   - Open Kafka UI at http://localhost:8080
+   - Check the `job-queue` topic for messages
+   - Watch job status change from PENDING → PROCESSING → COMPLETED
+
+4. **View job statistics**:
+   ```bash
+   curl http://localhost:8081/api/jobs/stats
+   ```
+
 ### Running Tests
 
 ```bash
@@ -88,14 +119,58 @@ The application uses Spring profiles:
 - **local**: Uses H2 in-memory database, suitable for development
 - **production**: Uses PostgreSQL with Flyway migrations
 
+## API Endpoints
+
+### Submit a Job
+```bash
+POST /api/jobs
+Content-Type: application/json
+
+{
+  "jobType": "email-job",
+  "payload": {
+    "email": "user@example.com",
+    "subject": "Welcome"
+  }
+}
+```
+
+### Get Job Status
+```bash
+GET /api/jobs/{jobId}
+```
+
+### List Jobs
+```bash
+GET /api/jobs?page=0&size=10&jobType=email-job&status=PENDING
+```
+
+### Get Job Statistics
+```bash
+GET /api/jobs/stats
+```
+
+### Cancel a Job
+```bash
+DELETE /api/jobs/{jobId}
+```
+
+## Supported Job Types
+
+- **email-job**: Send emails (simulated)
+- **data-processing**: Process data tasks
+- **file-processing**: Process files
+- **test-job**: Test job processing with custom payload
+
 ## Development Workflow
 
 This project follows an incremental development approach with GitHub issues and Pull Requests:
 
-1. **Project & Docker Compose Setup** - Infrastructure and containerization
-2. **Application Configuration** - Spring profiles and database setup
-3. **REST API Endpoints** - Job submission and status endpoints
-4. **Metrics & Monitoring** - Prometheus integration and dashboards
+1. **Project & Docker Compose Setup** - Infrastructure and containerization ✅
+2. **Application Configuration** - Spring profiles and database setup ✅
+3. **REST API Endpoints** - Job submission and status endpoints ✅
+4. **Kafka Integration** - Asynchronous job processing with Kafka ✅
+5. **Metrics & Monitoring** - Prometheus integration and dashboards
 
 ## Contributing
 
