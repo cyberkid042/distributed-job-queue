@@ -78,21 +78,21 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * Update job status with started timestamp.
      */
     @Modifying
-    @Query("UPDATE Job j SET j.status = :status, j.startedAt = CURRENT_TIMESTAMP, j.updatedAt = CURRENT_TIMESTAMP, j.workerId = :workerId WHERE j.id = :id")
+    @Query("UPDATE Job j SET j.status = :status, j.startedAt = CURRENT_TIMESTAMP, j.updatedAt = CURRENT_TIMESTAMP, j.workerId = :workerId WHERE j.id = :id AND j.status = 'PENDING'")
     int updateJobStatusWithStart(@Param("id") Long id, @Param("status") JobStatus status, @Param("workerId") String workerId);
 
     /**
      * Update job status with completion timestamp.
      */
     @Modifying
-    @Query("UPDATE Job j SET j.status = :status, j.completedAt = CURRENT_TIMESTAMP, j.updatedAt = CURRENT_TIMESTAMP WHERE j.id = :id")
+    @Query("UPDATE Job j SET j.status = :status, j.completedAt = CURRENT_TIMESTAMP, j.updatedAt = CURRENT_TIMESTAMP WHERE j.id = :id AND j.status = 'PROCESSING'")
     int updateJobStatusWithCompletion(@Param("id") Long id, @Param("status") JobStatus status);
 
     /**
      * Update job status with error information.
      */
     @Modifying
-    @Query("UPDATE Job j SET j.status = :status, j.errorMessage = :errorMessage, j.updatedAt = CURRENT_TIMESTAMP WHERE j.id = :id")
+    @Query("UPDATE Job j SET j.status = :status, j.errorMessage = :errorMessage, j.updatedAt = CURRENT_TIMESTAMP WHERE j.id = :id AND j.status != 'FAILED'")
     int updateJobStatusWithError(@Param("id") Long id, @Param("status") JobStatus status, @Param("errorMessage") String errorMessage);
 
     /**
