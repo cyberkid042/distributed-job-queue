@@ -6,7 +6,9 @@ import com.example.distributedjobqueue.model.JobStatus;
 import com.example.distributedjobqueue.repository.JobRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -187,5 +189,37 @@ public class JobService {
         public long getCompleted() { return completed; }
         public long getFailed() { return failed; }
         public long getTotal() { return pending + processing + completed + failed; }
+    }
+
+    /**
+     * Find jobs by status with pagination.
+     */
+    @Transactional(readOnly = true)
+    public Page<Job> findByStatus(JobStatus status, Pageable pageable) {
+        return jobRepository.findByStatus(status, pageable);
+    }
+
+    /**
+     * Find jobs by job type with pagination.
+     */
+    @Transactional(readOnly = true)
+    public Page<Job> findByJobType(String jobType, Pageable pageable) {
+        return jobRepository.findByJobType(jobType, pageable);
+    }
+
+    /**
+     * Find jobs by job type and status with pagination.
+     */
+    @Transactional(readOnly = true)
+    public Page<Job> findByJobTypeAndStatus(String jobType, JobStatus status, Pageable pageable) {
+        return jobRepository.findByJobTypeAndStatus(jobType, status, pageable);
+    }
+
+    /**
+     * Find all jobs with pagination.
+     */
+    @Transactional(readOnly = true)
+    public Page<Job> findAllJobs(Pageable pageable) {
+        return jobRepository.findAll(pageable);
     }
 }
