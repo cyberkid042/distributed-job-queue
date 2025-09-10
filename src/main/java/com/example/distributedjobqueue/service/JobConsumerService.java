@@ -2,6 +2,7 @@ package com.example.distributedjobqueue.service;
 
 import com.example.distributedjobqueue.model.Job;
 import com.example.distributedjobqueue.model.JobStatus;
+import com.example.distributedjobqueue.service.JobMetricsService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -28,10 +29,12 @@ public class JobConsumerService {
 
     private final JobService jobService;
     private final ObjectMapper objectMapper;
+    private final JobMetricsService jobMetricsService;
 
-    public JobConsumerService(JobService jobService, ObjectMapper objectMapper) {
+    public JobConsumerService(JobService jobService, ObjectMapper objectMapper, JobMetricsService jobMetricsService) {
         this.jobService = jobService;
         this.objectMapper = objectMapper;
+        this.jobMetricsService = jobMetricsService;
     }
 
     /**
@@ -63,7 +66,13 @@ public class JobConsumerService {
             }
 
             // Process the job based on its type
+            long startTime = System.currentTimeMillis();
             boolean success = processJobByType(job);
+            long processingTime = System.currentTimeMillis() - startTime;
+
+            // Track job processing metrics
+            jobMetricsService.recordJobProcessingDuration(java.time.Duration.ofMillis(processingTime));
+            jobMetricsService.incrementJobTypeProcessed(job.getJobType());
 
             // Update job status based on processing result
             if (success) {

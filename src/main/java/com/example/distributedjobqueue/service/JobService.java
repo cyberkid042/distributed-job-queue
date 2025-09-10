@@ -5,6 +5,7 @@ import com.example.distributedjobqueue.model.Job;
 import com.example.distributedjobqueue.model.JobStatus;
 import com.example.distributedjobqueue.repository.JobRepository;
 import com.example.distributedjobqueue.service.JobProducerService;
+import com.example.distributedjobqueue.service.JobMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -32,11 +33,13 @@ public class JobService {
     private final JobRepository jobRepository;
     private final JobQueueProperties properties;
     private final JobProducerService jobProducerService;
+    private final JobMetricsService jobMetricsService;
 
-    public JobService(JobRepository jobRepository, JobQueueProperties properties, JobProducerService jobProducerService) {
+    public JobService(JobRepository jobRepository, JobQueueProperties properties, JobProducerService jobProducerService, JobMetricsService jobMetricsService) {
         this.jobRepository = jobRepository;
         this.properties = properties;
         this.jobProducerService = jobProducerService;
+        this.jobMetricsService = jobMetricsService;
     }
 
     /**
@@ -55,6 +58,9 @@ public class JobService {
         Job savedJob = jobRepository.save(job);
         logger.info("Created new job: {}", savedJob);
 
+        // Track job creation metric
+        jobMetricsService.incrementJobsCreated();
+
         // Send job to Kafka for asynchronous processing
         try {
             jobProducerService.sendJob(savedJob)
@@ -62,14 +68,21 @@ public class JobService {
                         if (exception != null) {
                             logger.error("Failed to send job {} to Kafka", savedJob.getJobId(), exception);
                             // Mark job as failed if we can't send to Kafka
-                            failJob(savedJob.getId(), "Failed to queue job for processing");
+                            Optional<Job> jobOpt = jobRepository.findById(savedJob.getId());
+                            if (jobOpt.isPresent() && jobOpt.get().getStatus() != JobStatus.FAILED) {
+                                failJob(savedJob.getId(), "Failed to queue job for processing");
+                            }
                         } else {
                             logger.info("Job {} successfully queued for processing", savedJob.getJobId());
                         }
                     });
         } catch (Exception e) {
             logger.error("Error sending job {} to Kafka", savedJob.getJobId(), e);
-            failJob(savedJob.getId(), "Failed to queue job for processing");
+            // Only fail the job if it's not already failed
+            Optional<Job> jobOpt = jobRepository.findById(savedJob.getId());
+            if (jobOpt.isPresent() && jobOpt.get().getStatus() != JobStatus.FAILED) {
+                failJob(savedJob.getId(), "Failed to queue job for processing");
+            }
         }
 
         return savedJob;
@@ -120,6 +133,7 @@ public class JobService {
         int updated = jobRepository.updateJobStatusWithCompletion(jobId, JobStatus.COMPLETED);
         if (updated > 0) {
             logger.info("Completed job ID {}", jobId);
+            jobMetricsService.incrementJobsCompleted();
             return true;
         }
         return false;
@@ -132,6 +146,7 @@ public class JobService {
         int updated = jobRepository.updateJobStatusWithError(jobId, JobStatus.FAILED, errorMessage);
         if (updated > 0) {
             logger.warn("Failed job ID {}: {}", jobId, errorMessage);
+            jobMetricsService.incrementJobsFailed();
             return true;
         }
         return false;
@@ -156,6 +171,7 @@ public class JobService {
         if (updated > 0) {
             logger.info("Retrying job ID {} (attempt {}/{})", jobId,
                        job.getRetryCount() + 1, job.getMaxRetries());
+            jobMetricsService.incrementJobsRetried();
             return true;
         }
         return false;
@@ -184,6 +200,9 @@ public class JobService {
         long processing = jobRepository.countByStatus(JobStatus.PROCESSING);
         long completed = jobRepository.countByStatus(JobStatus.COMPLETED);
         long failed = jobRepository.countByStatus(JobStatus.FAILED);
+
+        // Update queue size metric (pending + processing jobs)
+        jobMetricsService.updateQueueSize(pending + processing);
 
         return new JobStatistics(pending, processing, completed, failed);
     }

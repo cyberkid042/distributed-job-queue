@@ -181,12 +181,72 @@ This project follows an incremental development approach with GitHub issues and 
 
 ## Monitoring
 
-The application exposes Prometheus metrics at `/actuator/prometheus` including:
+The application exposes comprehensive metrics for monitoring job queue performance:
 
-- Queue size metrics
-- Job processing latency
-- Success/failure counts
+### Prometheus Metrics Endpoint
+```
+GET /actuator/prometheus
+```
+
+### Custom Job Queue Metrics
+```
+GET /actuator/job-queue
+```
+
+### Available Metrics
+
+#### Queue Metrics
+- `job_queue_size` - Current number of jobs in queue (pending + processing)
+- `jobs_created_total` - Total number of jobs created
+- `jobs_completed_total` - Total number of jobs completed successfully
+- `jobs_failed_total` - Total number of jobs that failed
+- `jobs_retried_total` - Total number of jobs that were retried
+
+#### Performance Metrics
+- `job_processing_duration` - Time taken to process jobs (with percentiles)
+- `jobs_processed_by_type_total{job_type="email|data|file|test"}` - Jobs processed by type
+
+#### Custom Endpoint Metrics
+The `/actuator/job-queue` endpoint provides:
+```json
+{
+  "queue": {
+    "size": 5,
+    "pending": 3,
+    "processing": 2,
+    "completed": 150,
+    "failed": 5,
+    "total": 158
+  },
+  "processing": {
+    "created": 158,
+    "completed": 150,
+    "failed": 5,
+    "retried": 8
+  },
+  "performance": {
+    "successRate": "94.94%",
+    "totalProcessed": 155
+  }
+}
+```
+
+### Grafana Dashboards
+
+The application includes Grafana dashboards for visualizing:
+
+- Queue size over time
+- Job processing latency percentiles
+- Success/failure rates
+- Job type distribution
 - System health metrics
+
+### Monitoring Setup
+
+1. **Prometheus**: Metrics collection at `/actuator/prometheus`
+2. **Grafana**: Dashboard visualization
+3. **Kafka UI**: Message queue monitoring
+4. **Spring Actuator**: Application health and custom metrics
 
 ## License
 
