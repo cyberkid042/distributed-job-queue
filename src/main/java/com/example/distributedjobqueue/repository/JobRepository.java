@@ -113,7 +113,12 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findByJobTypeAndStatus(String jobType, JobStatus status);
 
     /**
-     * Find jobs by worker ID.
+     * Find jobs by job type with pagination.
      */
-    List<Job> findByWorkerId(String workerId);
+    Page<Job> findByJobType(String jobType, Pageable pageable);
+
+    /**
+     * Find jobs by job type and status with pagination.
+     */
+    Page<Job> findByJobTypeAndStatus(String jobType, JobStatus status, Pageable pageable);
 }
